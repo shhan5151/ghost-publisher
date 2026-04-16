@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost 發布面板</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f4; min-height: 100vh; padding: 2rem 1rem; }
+  .panel { background: #fff; border: 1px solid #e5e5e3; border-radius: 12px; padding: 2rem; max-width: 700px; margin: 0 auto; }
+  .panel-title { font-size: 16px; font-weight: 600; color: #1a1a1a; margin-bottom: 1.5rem; }
+  .json-zone { background: #fafaf9; border: 1.5px dashed #d0d0ce; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+  .json-zone-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .json-row { display: flex; gap: 8px; align-items: flex-start; }
+  .json-input { flex: 1; font-family: 'SF Mono','Menlo',monospace; font-size: 12px; color: #444; background: #fff; border: 1px solid #e5e5e3; border-radius: 8px; padding: 9px 11px; resize: none; outline: none; height: 56px; transition: border-color 0.15s; }
+  .json-input:focus { border-color: #a3a3a0; }
+  .json-btn { padding: 9px 16px; border-radius: 8px; border: none; background: #1a1a1a; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; transition: opacity 0.15s; flex-shrink: 0; }
+  .json-btn:hover { opacity: 0.8; }
+  .json-error { font-size: 12px; color: #dc2626; margin-top: 6px; }
+  .json-hint { font-size: 11px; color: #bbb; margin-top: 6px; line-height: 1.6; }
+  .divider { border: none; border-top: 1px solid #f0f0ee; margin: 1.25rem 0; }
+  .section-label { font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; }
+  .field { margin-bottom: 1.25rem; }
+  textarea, input[type="text"] { width: 100%; font-family: inherit; font-size: 14px; color: #1a1a1a; background: #fafaf9; border: 1px solid #e5e5e3; border-radius: 8px; padding: 10px 12px; resize: vertical; outline: none; transition: border-color 0.15s, background 0.15s; }
+  textarea:focus, input[type="text"]:focus { border-color: #a3a3a0; background: #fff; }
+  .filled { border-color: #86efca !important; background: #f0faf5 !important; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tags-wrap { border: 1px solid #e5e5e3; border-radius: 8px; background: #fafaf9; padding: 8px 10px; min-height: 42px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; cursor: text; }
+  .tags-wrap:focus-within { border-color: #a3a3a0; background: #fff; }
+  .tag { background: #f0f0ee; border-radius: 20px; padding: 3px 10px; font-size: 12px; color: #444; display: flex; align-items: center; gap: 4px; }
+  .tag-x { cursor: pointer; color: #999; font-size: 15px; line-height: 1; }
+  .tag-x:hover { color: #333; }
+  .tags-wrap input { border: none; outline: none; background: transparent; font-size: 14px; color: #1a1a1a; font-family: inherit; flex: 1; min-width: 100px; padding: 2px 0; }
+  .help { font-size: 12px; color: #999; margin-top: 5px; }
+  .char-count { font-size: 11px; color: #bbb; text-align: right; margin-top: 4px; }
+  .cover-preview { width: 100%; height: 160px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; border: 1px solid #e5e5e3; }
+  .send-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; background: #1a1a1a; color: #fff; font-family: inherit; transition: opacity 0.15s, transform 0.1s; margin-top: 0.25rem; }
+  .send-btn:hover:not(:disabled) { opacity: 0.85; }
+  .send-btn:active:not(:disabled) { transform: scale(0.99); }
+  .send-btn:disabled { background: #e5e5e3; color: #aaa; cursor: not-allowed; }
+  .result { margin-top: 1rem; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; }
+  .result.success { background: #f0faf5; color: #0a5c3a; border: 1px solid #86efca; }
+  .result.error { background: #fef2f2; color: #7f1d1d; border: 1px solid #fca5a5; }
+  .result a { color: inherit; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <p class="panel-title">Ghost 發布面板</p>
+
+  <div class="json-zone">
+    <p class="json-zone-label">貼上 Claude 產出的資料</p>
+    <div class="json-row">
+      <textarea class="json-input" id="json-input" placeholder='{"title":"...","slug":"...","excerpt":"...","tags":["..."],"feature_image":"https://...","content":"..."}'></textarea>
+      <button class="json-btn" onclick="parseJson()">自動填入</button>
+    </div>
+    <p class="json-error" id="json-error"></p>
+    <p class="json-hint">文章完成後，請 Claude 說「產出發布資料」，將 JSON 貼上後按自動填入，再按存為草稿即可。</p>
+  </div>
+
+  <div class="field">
+    <p class="section-label">文章標題</p>
+    <input type="text" id="title" placeholder="H1 標題" oninput="updateSlug(this.value)" />
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <p class="section-label">URL Slug</p>
+      <input type="text" id="slug" placeholder="article-url-slug" />
+      <p class="help">自動從標題生成，可手動修改</p>
+    </div>
+    <div class="field">
+      <p class="section-label">Tags</p>
+      <div class="tags-wrap" id="tags-container" onclick="document.getElementById('tag-input').focus()">
+        <input type="text" id="tag-input" placeholder="輸入後按 Enter" onkeydown="handleTagInput(event)" />
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <p class="section-label">Excerpt</p>
+    <textarea id="excerpt" rows="2" placeholder="文章開頭情境段落（約 50–80 字）" oninput="updateCount(this,'exc-count',300)"></textarea>
+    <p class="char-count" id="exc-count">0 / 300</p>
+  </div>
+
+  <div class="field">
+    <p class="section-label">封面圖片網址</p>
+    <input type="text" id="feature-image" placeholder="https://example.com/image.jpg" oninput="previewImage(this.value)" />
+    <img id="cover-preview" class="cover-preview" alt="封面預覽" />
+    <p class="help">貼上圖片直連網址，自動設為文章封面</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="field">
+    <p class="section-label">文章內容（Markdown）</p>
+    <textarea id="content" rows="10" placeholder="貼上 Markdown 全文" oninput="updateCount(this,'cnt-count',null)"></textarea>
+    <p class="char-count" id="cnt-count">0 字</p>
+  </div>
+
+  <button class="send-btn" id="send-btn" onclick="publishToGhost()">存為草稿</button>
+  <div id="result-box"></div>
+</div>
+
+<script>
+const GHOST_URL = 'https://postx.ghost.io';
+const ADMIN_KEY = '69dce2997c58f1000167bf67:a61474ef60fb37e3b98e562e777884042beab64f90eae9274185c0c499ec075e';
+let tags = [];
+
+function parseJson() {
+  const raw = document.getElementById('json-input').value.trim();
+  const errEl = document.getElementById('json-error');
+  errEl.textContent = '';
+  try {
+    const d = JSON.parse(raw);
+    if (d.title) { setField('title', d.title); updateSlug(d.title); }
+    if (d.slug) document.getElementById('slug').value = d.slug;
+    if (d.excerpt) { setField('excerpt', d.excerpt); updateCount(document.getElementById('excerpt'),'exc-count',300); }
+    if (d.content) { setField('content', d.content); updateCount(document.getElementById('content'),'cnt-count',null); }
+    if (d.feature_image) { setField('feature-image', d.feature_image); previewImage(d.feature_image); }
+    if (Array.isArray(d.tags)) { tags = d.tags; renderTags(); }
+    document.getElementById('json-input').style.borderColor = '#86efca';
+  } catch(e) {
+    errEl.textContent = '格式錯誤，請確認是有效的 JSON。';
+  }
+}
+
+function previewImage(url) {
+  const img = document.getElementById('cover-preview');
+  if (url && url.startsWith('http')) {
+    img.src = url;
+    img.style.display = 'block';
+    img.onerror = () => { img.style.display = 'none'; };
+  } else {
+    img.style.display = 'none';
+  }
+}
+
+function setField(id, val) {
+  const el = document.getElementById(id);
+  el.value = val;
+  el.classList.add('filled');
+}
+
+function updateSlug(title) {
+  document.getElementById('slug').value = title.toLowerCase()
+    .replace(/[^\w\s\u4e00-\u9fff-]/g,'')
+    .replace(/[\s\u4e00-\u9fff]+/g,'-')
+    .replace(/-+/g,'-').replace(/^-|-$/g,'');
+}
+
+function updateCount(el, id, max) {
+  const n = el.value.length;
+  const out = document.getElementById(id);
+  out.textContent = max ? n + ' / ' + max : n + ' 字';
+  out.style.color = (max && n > max) ? '#ef4444' : '';
+}
+
+function handleTagInput(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,$/,'');
+    if (val && !tags.includes(val)) { tags.push(val); renderTags(); }
+    e.target.value = '';
+  }
+}
+
+function removeTag(t) { tags = tags.filter(x => x !== t); renderTags(); }
+
+function renderTags() {
+  const c = document.getElementById('tags-container');
+  const inp = document.getElementById('tag-input');
+  c.innerHTML = '';
+  tags.forEach(t => {
+    const el = document.createElement('span');
+    el.className = 'tag';
+    el.innerHTML = t + '<span class="tag-x" onclick="removeTag(\'' + t.replace(/'/g,"\\'") + '\')">×</span>';
+    c.appendChild(el);
+  });
+  c.appendChild(inp);
+}
+
+function toMobiledoc(markdown) {
+  return JSON.stringify({
+    version: '0.3.1',
+    markups: [],
+    atoms: [],
+    cards: [['markdown', { markdown }]],
+    sections: [[10, 0]]
+  });
+}
+
+async function publishToGhost() {
+  const title = document.getElementById('title').value.trim();
+  const content = document.getElementById('content').value.trim();
+  const slug = document.getElementById('slug').value.trim();
+  const excerpt = document.getElementById('excerpt').value.trim();
+  const featureImage = document.getElementById('feature-image').value.trim();
+  const btn = document.getElementById('send-btn');
+  const box = document.getElementById('result-box');
+
+  if (!title || !content) {
+    box.innerHTML = '<div class="result error">標題和文章內容為必填欄位。</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '推送中...';
+  box.innerHTML = '';
+
+  const [id, secret] = ADMIN_KEY.split(':');
+  try {
+    const header = btoa(JSON.stringify({ alg:'HS256', kid:id, typ:'JWT' }));
+    const now = Math.floor(Date.now() / 1000);
+    const payload = btoa(JSON.stringify({ iat:now, exp:now+300, aud:'/admin/' }));
+    const unsigned = header + '.' + payload;
+    const keyData = new Uint8Array(secret.match(/.{2}/g).map(b => parseInt(b,16)));
+    const ck = await crypto.subtle.importKey('raw', keyData, {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', ck, new TextEncoder().encode(unsigned));
+    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    const token = unsigned + '.' + sigB64;
+
+    const mobiledoc = toMobiledoc(content);
+
+    const postPayload = {
+      title,
+      mobiledoc,
+      status: 'draft',
+      slug: slug || undefined,
+      custom_excerpt: excerpt || undefined,
+      tags: tags.map(t => ({ name: t })),
+      feature_image: featureImage || undefined
+    };
+
+    const res = await fetch(GHOST_URL + '/ghost/api/admin/posts/', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Ghost ' + token },
+      body: JSON.stringify({ posts: [postPayload] })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.posts?.[0]) {
+      const url = GHOST_URL + '/ghost/#/editor/post/' + data.posts[0].id;
+      box.innerHTML = '<div class="result success">草稿已建立！<br><a href="' + url + '" target="_blank">在 Ghost 後台開啟編輯 →</a></div>';
+    } else {
+      box.innerHTML = '<div class="result error">推送失敗：' + (data.errors?.[0]?.message || JSON.stringify(data)) + '</div>';
+    }
+  } catch(err) {
+    box.innerHTML = '<div class="result error">發生錯誤：' + err.message + '</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '存為草稿';
+}
+</script>
+</body>
+</html>
