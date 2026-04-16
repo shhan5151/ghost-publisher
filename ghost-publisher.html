@@ -103,8 +103,7 @@
 </div>
 
 <script>
-const GHOST_URL = 'https://postx.ghost.io';
-const ADMIN_KEY = '69dce2997c58f1000167bf67:a61474ef60fb37e3b98e562e777884042beab64f90eae9274185c0c499ec075e';
+const WEBHOOK_URL = 'https://hook.us2.make.com/mr8tdat5m69a8yxlllejt31vkynyidbp';
 let tags = [];
 
 function parseJson() {
@@ -208,42 +207,27 @@ async function publishToGhost() {
   btn.textContent = '推送中...';
   box.innerHTML = '';
 
-  const [id, secret] = ADMIN_KEY.split(':');
   try {
-    const header = btoa(JSON.stringify({ alg:'HS256', kid:id, typ:'JWT' }));
-    const now = Math.floor(Date.now() / 1000);
-    const payload = btoa(JSON.stringify({ iat:now, exp:now+300, aud:'/admin/' }));
-    const unsigned = header + '.' + payload;
-    const keyData = new Uint8Array(secret.match(/.{2}/g).map(b => parseInt(b,16)));
-    const ck = await crypto.subtle.importKey('raw', keyData, {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
-    const sig = await crypto.subtle.sign('HMAC', ck, new TextEncoder().encode(unsigned));
-    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-    const token = unsigned + '.' + sigB64;
-
     const mobiledoc = toMobiledoc(content);
-
-    const postPayload = {
+    const payload = {
       title,
       mobiledoc,
-      status: 'draft',
       slug: slug || undefined,
       custom_excerpt: excerpt || undefined,
       tags: tags.map(t => ({ name: t })),
       feature_image: featureImage || undefined
     };
 
-    const res = await fetch(GHOST_URL + '/ghost/api/admin/posts/', {
+    const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json', 'Authorization':'Ghost ' + token },
-      body: JSON.stringify({ posts: [postPayload] })
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
-    if (res.ok && data.posts?.[0]) {
-      const url = GHOST_URL + '/ghost/#/editor/post/' + data.posts[0].id;
-      box.innerHTML = '<div class="result success">草稿已建立！<br><a href="' + url + '" target="_blank">在 Ghost 後台開啟編輯 →</a></div>';
+    if (res.ok) {
+      box.innerHTML = '<div class="result success">已送出！請到 Ghost 後台確認草稿。</div>';
     } else {
-      box.innerHTML = '<div class="result error">推送失敗：' + (data.errors?.[0]?.message || JSON.stringify(data)) + '</div>';
+      box.innerHTML = '<div class="result error">推送失敗：HTTP ' + res.status + '</div>';
     }
   } catch(err) {
     box.innerHTML = '<div class="result error">發生錯誤：' + err.message + '</div>';
