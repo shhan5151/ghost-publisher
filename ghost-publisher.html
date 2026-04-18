@@ -103,9 +103,7 @@
 </div>
 
 <script>
-const WEBHOOK_URL = 'https://hook.us2.make.com/mr8tdat5m69a8yxlllejt31vkynyidbp';
-const GHOST_URL = 'https://postx.ghost.io';
-const ADMIN_KEY = '69dce2997c58f1000167bf67:a61474ef60fb37e3b98e562e777884042beab64f90eae9274185c0c499ec075e';
+const WEBHOOK_URL = 'https://hook.us2.make.com/fwersgpk9lkbi9mfntjc0jkd6h9tqaym';
 let tags = [];
 
 function parseJson() {
@@ -191,19 +189,6 @@ function toMobiledoc(markdown) {
   });
 }
 
-async function generateToken() {
-  const [id, secret] = ADMIN_KEY.split(':');
-  const header = btoa(JSON.stringify({ alg:'HS256', kid:id, typ:'JWT' }));
-  const now = Math.floor(Date.now() / 1000);
-  const payload = btoa(JSON.stringify({ iat:now, exp:now+300, aud:'/admin/' }));
-  const unsigned = header + '.' + payload;
-  const keyData = new Uint8Array(secret.match(/.{2}/g).map(b => parseInt(b,16)));
-  const ck = await crypto.subtle.importKey('raw', keyData, {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', ck, new TextEncoder().encode(unsigned));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-  return unsigned + '.' + sigB64;
-}
-
 async function publishToGhost() {
   const title = document.getElementById('title').value.trim();
   const content = document.getElementById('content').value.trim();
@@ -223,29 +208,24 @@ async function publishToGhost() {
   box.innerHTML = '';
 
   try {
-    const token = await generateToken();
     const mobiledoc = toMobiledoc(content);
+    const payload = {
+      title,
+      mobiledoc,
+      slug: slug || undefined,
+      custom_excerpt: excerpt || undefined,
+      tags: tags.map(t => ({ name: t })),
+      feature_image: featureImage || undefined
+    };
 
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ghost_url: GHOST_URL,
-        token: token,
-        post: {
-          title,
-          mobiledoc,
-          status: 'draft',
-          slug: slug || undefined,
-          custom_excerpt: excerpt || undefined,
-          tags: tags.map(t => ({ name: t })),
-          feature_image: featureImage || undefined
-        }
-      })
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
     });
 
     if (res.ok) {
-      box.innerHTML = '<div class="result success">已送出！請到 <a href="' + GHOST_URL + '/ghost/#/posts?type=draft" target="_blank">Ghost 後台草稿</a> 確認。</div>';
+      box.innerHTML = '<div class="result success">已送出！請到 Ghost 後台確認草稿。</div>';
     } else {
       box.innerHTML = '<div class="result error">推送失敗：HTTP ' + res.status + '</div>';
     }
