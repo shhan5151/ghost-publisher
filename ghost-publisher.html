@@ -223,22 +223,26 @@ async function publishToGhost() {
     const payload = {
       title,
       html,
+      status: 'draft',
       slug: slug || undefined,
       custom_excerpt: excerpt || undefined,
       tags: tags.map(t => ({ name: t })),
       feature_image: featureImage || undefined
     };
 
-    const res = await fetch(WEBHOOK_URL, {
+    const token = await generateToken();
+    const res = await fetch(GHOST_URL + '/ghost/api/admin/posts/?source=html', {
       method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type':'application/json', 'Authorization': 'Ghost ' + token },
+      body: JSON.stringify({posts: [payload]})
     });
 
-    if (res.ok) {
-      box.innerHTML = '<div class="result success">已送出！請到 Ghost 後台確認草稿。</div>';
+    const data = await res.json();
+    if (res.ok && data.posts?.[0]) {
+      const url = GHOST_URL + '/ghost/#/editor/post/' + data.posts[0].id;
+      box.innerHTML = '<div class="result success">草稿已建立！<br><a href="' + url + '" target="_blank">在 Ghost 後台開啟編輯 →</a></div>';
     } else {
-      box.innerHTML = '<div class="result error">推送失敗：HTTP ' + res.status + '</div>';
+      box.innerHTML = '<div class="result error">推送失敗：' + (data.errors?.[0]?.message || 'HTTP ' + res.status) + '</div>';
     }
   } catch(err) {
     box.innerHTML = '<div class="result error">發生錯誤：' + err.message + '</div>';
