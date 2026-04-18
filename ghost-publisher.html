@@ -222,7 +222,7 @@ async function publishToGhost() {
     const html = mdToHtml(content);
     const payload = {
       title,
-      mobiledoc,
+      html,
       slug: slug || undefined,
       custom_excerpt: excerpt || undefined,
       tags: tags.map(t => ({ name: t })),
