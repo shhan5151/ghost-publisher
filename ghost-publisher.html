@@ -103,7 +103,8 @@
 </div>
 
 <script>
-const WEBHOOK_URL = 'https://hook.us2.make.com/mr8tdat5m69a8yxlllejt31vkynyidbp';
+const GHOST_URL = 'https://postx.ghost.io';
+const ADMIN_KEY = '69dce2997c58f1000167bf67:256465250c29a6b84a3bb2c6d45a66a89b8cdc9cecccad3a71d28b128ff7ae18';
 let tags = [];
 
 function parseJson() {
@@ -190,7 +191,7 @@ function mdToHtml(md) {
     .replace(/`(.+?)`/g,'<code>$1</code>')
     .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
     .replace(/^---$/gm,'<hr>')
-    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/^\- (.+)$/gm,'<li>$1</li>')
     .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>')
     .split(/\n\n+/).map(block => {
       block = block.trim();
@@ -198,6 +199,19 @@ function mdToHtml(md) {
       if (/^<[hul]|^<hr/.test(block)) return block;
       return '<p>' + block.replace(/\n/g,' ') + '</p>';
     }).join('\n');
+}
+
+async function generateToken() {
+  const [id, secret] = ADMIN_KEY.split(':');
+  const header = btoa(JSON.stringify({ alg:'HS256', kid:id, typ:'JWT' }));
+  const now = Math.floor(Date.now() / 1000);
+  const payload = btoa(JSON.stringify({ iat:now, exp:now+300, aud:'/admin/' }));
+  const unsigned = header + '.' + payload;
+  const keyData = new Uint8Array(secret.match(/.{2}/g).map(b => parseInt(b,16)));
+  const ck = await crypto.subtle.importKey('raw', keyData, {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', ck, new TextEncoder().encode(unsigned));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return unsigned + '.' + sigB64;
 }
 
 async function publishToGhost() {
@@ -219,8 +233,10 @@ async function publishToGhost() {
   box.innerHTML = '';
 
   try {
+    const token = await generateToken();
     const html = mdToHtml(content);
-    const payload = {
+
+    const post = {
       title,
       html,
       status: 'draft',
@@ -230,11 +246,13 @@ async function publishToGhost() {
       feature_image: featureImage || undefined
     };
 
-    const token = await generateToken();
     const res = await fetch(GHOST_URL + '/ghost/api/admin/posts/?source=html', {
       method: 'POST',
-      headers: { 'Content-Type':'application/json', 'Authorization': 'Ghost ' + token },
-      body: JSON.stringify({posts: [payload]})
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Ghost ' + token
+      },
+      body: JSON.stringify({ posts: [post] })
     });
 
     const data = await res.json();
