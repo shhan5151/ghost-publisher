@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI 郵報 · Ghost 發文面板</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Marked.js for Markdown → HTML -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
@@ -50,23 +49,7 @@
   .badge.err { border-color: var(--error); color: var(--error); }
   .badge.sending { border-color: var(--warning); color: var(--warning); }
 
-  .config {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px;
-  }
-  .config label {
-    font-size: 11px; font-family: var(--mono); color: var(--text-dim);
-    text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 6px;
-  }
-  .config input {
-    width: 100%; background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 6px; padding: 10px 14px; color: var(--text);
-    font-family: var(--mono); font-size: 13px; outline: none; transition: border-color 0.2s;
-  }
-  .config input:focus { border-color: var(--border-focus); }
-  .config .note { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
-
-  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); margin-top: 12px; }
+  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
   .tab {
     padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--text-dim);
     cursor: pointer; border: none; border-bottom: 2px solid transparent;
@@ -184,12 +167,6 @@
     <span class="badge" id="badge">READY</span>
   </div>
 
-  <div class="config">
-    <label>Make Webhook URL</label>
-    <input type="url" id="webhookUrl" placeholder="https://hook.us2.make.com/xxxx..." />
-    <div class="note">自動儲存至 localStorage，下次免重填</div>
-  </div>
-
   <div class="tabs">
     <button class="tab active" onclick="switchTab('paste')">📋 貼上 JSON</button>
     <button class="tab" onclick="switchTab('manual')">✏️ 手動填寫</button>
@@ -262,10 +239,11 @@ let currentTab = 'paste';
 let parsed = null;
 let manualTags = [];
 
-// ===== Ghost Config =====
+// ===== Config (all hardcoded) =====
 const GHOST_API_ID = '69dce2997c58f1000167bf67';
 const GHOST_API_SECRET = '256465250c29a6b84a3bb2c6d45a66a89b8cdc9cecccad3a71d28b128ff7ae18';
 const GHOST_API_URL = 'https://postx.ghost.io/ghost/api/admin/posts/?source=html';
+const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/j570yxqowng4do5ogg4y21ql2r0admgr';
 
 // ===== JWT =====
 function b64url(buf) {
@@ -298,23 +276,9 @@ async function generateGhostJWT() {
 
 // ===== Markdown → HTML =====
 function mdToHtml(mdContent) {
-  // Check if content already contains HTML tags (like <a>, <table>, etc.)
-  // If so, use marked with html option enabled to preserve them
-  marked.setOptions({
-    breaks: true,
-    gfm: true
-  });
+  marked.setOptions({ breaks: true, gfm: true });
   return marked.parse(mdContent);
 }
-
-// ===== Init =====
-document.addEventListener('DOMContentLoaded', () => {
-  const s = localStorage.getItem('ghost_webhook_url');
-  if (s) document.getElementById('webhookUrl').value = s;
-});
-document.getElementById('webhookUrl').addEventListener('input', e => {
-  localStorage.setItem('ghost_webhook_url', e.target.value.trim());
-});
 
 // ===== Tabs =====
 function switchTab(t) {
@@ -413,11 +377,9 @@ function getPostData() {
 
 // ===== Publish =====
 async function publish() {
-  const wh = document.getElementById('webhookUrl').value.trim();
   const badge = document.getElementById('badge');
   const btn = document.getElementById('pubBtn');
 
-  if (!wh) return showResult('error', '請先填入 Make Webhook URL');
   const post = getPostData();
   if (!post.title) return showResult('error', '標題為必填');
   if (!post.content) return showResult('error', '文章內容為必填');
@@ -426,7 +388,6 @@ async function publish() {
   badge.textContent = 'CONVERTING'; badge.className = 'badge sending';
 
   try {
-    // Convert Markdown to HTML in browser
     const htmlContent = mdToHtml(post.content);
 
     btn.textContent = '產生 JWT 中...';
@@ -437,7 +398,6 @@ async function publish() {
     btn.textContent = '發佈中...';
     badge.textContent = 'SENDING';
 
-    // Build Ghost API body with converted HTML
     const ghostBody = {
       posts: [{
         title: post.title,
@@ -456,7 +416,7 @@ async function publish() {
       ghost_body: JSON.stringify(ghostBody)
     };
 
-    const res = await fetch(wh, {
+    const res = await fetch(MAKE_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -494,7 +454,7 @@ function clearAll() {
   ['f-title','f-slug','f-excerpt','f-image','f-content'].forEach(id => document.getElementById(id).value = '');
   manualTags = []; renderTags();
   document.getElementById('result').className = 'result';
-  document.getElementById('badge').textContent = 'READY'; document.getElementById('badge').className = 'badge';
+  document.getElementById('badge').textContent = 'READY'; document.className = 'badge';
 }
 </script>
 </body>
