@@ -49,6 +49,58 @@
   .badge.err { border-color: var(--error); color: var(--error); }
   .badge.sending { border-color: var(--warning); color: var(--warning); }
 
+  /* Author selector */
+  .author-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .author-bar label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .author-bar select {
+    flex: 1;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238888a0' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .author-bar select:focus { border-color: var(--border-focus); }
+  .author-bar select option {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .author-saved {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--success);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .author-saved.show { opacity: 1; }
+
   .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
   .tab {
     padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--text-dim);
@@ -167,6 +219,21 @@
     <span class="badge" id="badge">READY</span>
   </div>
 
+  <!-- Author selector -->
+  <div class="author-bar">
+    <label>Author</label>
+    <select id="authorSelect">
+      <option value="davin@aiposthub.com">Davin</option>
+      <option value="hannah@aiposthub.com">Hannah</option>
+      <option value="davincwc@gmail.com">Oscar</option>
+      <option value="philo@aiposthub.com">Philo</option>
+      <option value="hank@aiposhub.com">Hank</option>
+      <option value="joanna@aiposthub.com">Joanna</option>
+      <option value="howard.chiu1994@gmail.com">Howard</option>
+    </select>
+    <span class="author-saved" id="authorSaved">已記住</span>
+  </div>
+
   <div class="tabs">
     <button class="tab active" onclick="switchTab('paste')">📋 貼上 JSON</button>
     <button class="tab" onclick="switchTab('manual')">✏️ 手動填寫</button>
@@ -239,7 +306,7 @@ let currentTab = 'paste';
 let parsed = null;
 let manualTags = [];
 
-// ===== Config (all hardcoded) =====
+// ===== Config =====
 const GHOST_API_ID = '69dce2997c58f1000167bf67';
 const GHOST_API_SECRET = '256465250c29a6b84a3bb2c6d45a66a89b8cdc9cecccad3a71d28b128ff7ae18';
 const GHOST_API_URL = 'https://postx.ghost.io/ghost/api/admin/posts/?source=html';
@@ -279,6 +346,21 @@ function mdToHtml(mdContent) {
   marked.setOptions({ breaks: true, gfm: true });
   return marked.parse(mdContent);
 }
+
+// ===== Author: load & save =====
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('ghost_author');
+  if (saved) {
+    document.getElementById('authorSelect').value = saved;
+  }
+});
+
+document.getElementById('authorSelect').addEventListener('change', (e) => {
+  localStorage.setItem('ghost_author', e.target.value);
+  const hint = document.getElementById('authorSaved');
+  hint.classList.add('show');
+  setTimeout(() => hint.classList.remove('show'), 1500);
+});
 
 // ===== Tabs =====
 function switchTab(t) {
@@ -398,6 +480,9 @@ async function publish() {
     btn.textContent = '發佈中...';
     badge.textContent = 'SENDING';
 
+    // Get selected author email
+    const authorEmail = document.getElementById('authorSelect').value;
+
     const ghostBody = {
       posts: [{
         title: post.title,
@@ -406,6 +491,7 @@ async function publish() {
         feature_image: post.feature_image || null,
         html: htmlContent,
         tags: post.tags.map(t => ({ name: t })),
+        authors: [{ email: authorEmail }],
         status: 'draft'
       }]
     };
@@ -454,7 +540,7 @@ function clearAll() {
   ['f-title','f-slug','f-excerpt','f-image','f-content'].forEach(id => document.getElementById(id).value = '');
   manualTags = []; renderTags();
   document.getElementById('result').className = 'result';
-  document.getElementById('badge').textContent = 'READY'; document.className = 'badge';
+  document.getElementById('badge').textContent = 'READY'; document.getElementById('badge').className = 'badge';
 }
 </script>
 </body>
